@@ -1,0 +1,60 @@
+#! /bin/bash
+
+# TODO: a lot of this code is duplicated from ./start.sh
+# and some also from ./sandbox.sh
+# In the future we should merge these to deduplicate.
+
+# set -e 
+data_directory="data"
+
+LD_LIBRARY_PATH=$(esy x sh -c 'echo $LD_LIBRARY_PATH')
+export LD_LIBRARY_PATH
+
+DEKU_CLI=$(esy x which deku-cli)
+deku-cli () {
+  eval $DEKU_CLI '"$@"'
+}
+
+DEKU_NODE=$(esy x which deku-node)
+deku_node () {
+  eval $DEKU_NODE '"$@"'
+}
+
+VALIDATORS=(0 1 2)
+SERVERS=()
+echo "Starting nodes."
+for i in ${VALIDATORS[@]}; do
+  deku_node "$data_directory/$i" &
+  SERVERS+=($!)
+done
+
+sleep 1
+
+echo "Producing a block"
+HASH=$(deku-cli produce-block "$data_directory/0" | awk '{ print $2 }')
+
+sleep 0.1
+
+echo "Signing"
+for i in ${VALIDATORS[@]}; do
+  deku-cli sign-block "$data_directory/$i" $HASH
+done
+
+seconds=35
+sleep $seconds
+killall Domain0
+
+contract=$(cat "$data_directory/0/tezos.json" | jq '.consensus_contract' | xargs)
+storage=$(curl "http://localhost:20000/chains/main/blocks/head/context/contracts/$contract/storage")
+current_state_hash=$(echo $storage | jq '.args[0].args[0].args[2].bytes' | xargs)
+current_block_height=$(echo $storage | jq '.args[0].args[0].args[0].args[1].int' | xargs)
+
+# Check that a state root hash was published recently
+if [ $current_block_height -lt 20 ]; then
+  echo "Error: no recent state root hash update found. Exiting."
+  exit 1
+fi
+
+for i in ${VALIDATORS[@]}; do
+  esy x asserter "$data_directory/$i" $current_state_hash $seconds
+done
