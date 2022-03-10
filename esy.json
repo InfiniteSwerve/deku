@@ -3,7 +3,10 @@
   "esy": {
     "build": "dune build -p #{self.name}",
     "release": {
-      "bin": ["deku-cli", "deku-node"]
+      "bin": [
+        "deku-cli",
+        "deku-node"
+      ]
     },
     "buildEnv": {
       "PATH": "%{localStore}%/../bin:$PATH"
@@ -17,6 +20,7 @@
   },
   "dependencies": {
     "ocaml": "4.12.",
+    "@opam/core_bench": "*",
     "@opam/dune": "*",
     "@opam/ppx_deriving": "*",
     "@opam/ppx_deriving_yojson": "*",
@@ -65,6 +69,7 @@
         }
       }
     },
+    "@opam/core_bench": "InfiniteSwerve/core_bench#713433213949af14aa88d21b53048a57d2cd6ae0",
     "@reason-native/file-context-printer": {
       "version": "0.0.3",
       "override": {
